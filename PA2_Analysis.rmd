@@ -1,0 +1,91 @@
+---
+title: "PA2_Analysis"
+author: "Robert Jones"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Open packages
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(ggplot2)
+library(lubridate)
+
+```
+
+## Synopsis
+
+The aim of this report to is study the impact of natural disasters in the US with a view to understand how to manage resourcing and budgets to enable mitigation strategies. There shall be a particular focus on determining the even types which lead to the greatest harm to the poplation and those which have the greatest economic impact. The report shall also attempt to capture changes to trends across different states to identify where effective strategies have been implemented.
+
+
+## Data Processing
+The storm data has been downloaded from the National Weather Service between 19520 and 2011, further information on the data can be reviewed in the [following link](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf "Storm Data Documentation")
+
+Only data relating to the onjects will be passed on for analysis.
+```{r download.data}
+if (!dir.exists("data")) {
+  dir.create("data")
+}
+
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(url, "data/storm data.bz2")
+
+
+storm.data <- read.csv("data/storm data.bz2", as.is = T)
+
+storm.data$PROP.MULTI[storm.data$PROPDMGEXP == "K"] <- 1000
+storm.data$PROP.MULTI[storm.data$PROPDMGEXP == "M"] <- 1000000
+storm.data$PROP.MULTI[storm.data$PROPDMGEXP == "B"] <- 1000000000
+
+storm.data$CROP.MULTI[storm.data$CROPDMGEXP == "K"] <- 1000
+storm.data$CROP.MULTI[storm.data$CROPDMGEXP == "M"] <- 1000000
+storm.data$CROP.MULTI[storm.data$CROPDMGEXP == "B"] <- 1000000000
+
+
+#translate dates, aggregate damage and select columns
+storm.data<- mutate(storm.data, start.date = mdy_hms(storm.data$BGN_DATE),end.date = mdy_hms(storm.data$END_DATE), year = year(start.date),damage = PROPDMG*PROP.MULTI + CROPDMG*CROP.MULTI) %>%
+  select(year, EVTYPE, STATE, damage, INJURIES, FATALITIES)
+
+head(storm.data)
+
+```
+
+
+The study shall focus on the top 40 event types arrange with highest fatalities and also damage. The analysis steps are as follows:
+1. Get top 40 event types for each (fatalities and damage) and subset data based on top 40.
+
+```{r exploratory, echo=TRUE}
+#Get top 40 event types 
+storm.type.grouped <- group_by(storm.data, EVTYPE)
+
+storm.type.summary <- summarise(storm.type.grouped, total.injuries = sum(INJURIES, na.rm = T), mean.injuries = mean(INJURIES, na.rm = T),total.fatalities = sum(FATALITIES, na.rm = T), mean.fatalities = mean(FATALITIES, na.rm = T), total.damage = sum(damage, na.rm = T)) %>% arrange(-total.injuries) ###%>% top_n(40,total.injuries)
+
+top40.fatality.event <- top_n(storm.type.summary,40,total.fatalities)$EVTYPE
+top40.damage.event <- top_n(storm.type.summary,40,total.damage)$EVTYPE
+
+#Subset Data
+top40.fatality.storm <- filter(storm.data, EVTYPE%in% top40.fatality.event)
+top40.damage.storm <- filter(storm.data, EVTYPE%in% top40.damage.event)
+
+top40.year.grouped <- group_by(top40.storm, years)
+
+storm.year.summary <- summarise(storm.type.grouped, total.injuries = sum(INJURIES, na.rm = T), mean.injuries = mean(INJURIES, na.rm = T),total.fatalities = sum(FATALITIES, na.rm = T), mean.fatalities = mean(FATALITIES, na.rm = T)) %>% arrange(-total.injuries) %>% top_n(40,total.injuries)
+
+annual.trend <- ggplot() + geom_line(data = storm.type.summary, aes(total.injuries))
+
+print(annual.trend)
+
+storm.heatmap <- ggplot() + geom_tile(data = storm.type.summary, aes(year, EVTYPE, fill = total.fatalities)) +
+                  scale_fill_gradientn(colours = rev(heat.colors(100)))
+
+print(storm.heatmap)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##Results
