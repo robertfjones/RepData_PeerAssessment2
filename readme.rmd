@@ -1,0 +1,12 @@
+---
+title: "readme"
+Author: "Robert Jones"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Information
+This repo is for the reproducible research peer assesment 2, in week 4.

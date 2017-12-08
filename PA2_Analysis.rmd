@@ -3,7 +3,7 @@ title: "PA2_Analysis"
 author: "Robert Jones"
 output: html_document
 ---
-
+#Health and Economical of Natural Disasters
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -19,7 +19,7 @@ library(lubridate)
 
 ## Synopsis
 
-The aim of this report to is study the impact of natural disasters in the US with a view to understand how to manage resourcing and budgets to enable mitigation strategies. There shall be a particular focus on determining the even types which lead to the greatest harm to the poplation and those which have the greatest economic impact. The report shall also attempt to capture changes to trends across different states to identify where effective strategies have been implemented.
+The ai`m of this report to is study the impact of natural disasters in the US with a view to understand how to manage resourcing and budgets to enable mitigation strategies. There shall be a particular focus on determining the even types which lead to the greatest harm to the poplation and those which have the greatest economic impact. The report shall also attempt to capture changes to trends over time to assess whether a contributor is persistant.
 
 
 ## Data Processing
@@ -56,7 +56,10 @@ head(storm.data)
 
 
 The study shall focus on the top 40 event types arrange with highest fatalities and also damage. The analysis steps are as follows:
-1. Get top 40 event types for each (fatalities and damage) and subset data based on top 40.
+1. Group data and summarise damage and fatalities
+2. Get top 40 event types for each (fatalities and damage)
+3. Subset data based on top 40
+3. Create yearly summary for top 10 events
 
 ```{r exploratory, echo=TRUE}
 #Get top 40 event types 
@@ -64,28 +67,50 @@ storm.type.grouped <- group_by(storm.data, EVTYPE)
 
 storm.type.summary <- summarise(storm.type.grouped, total.injuries = sum(INJURIES, na.rm = T), mean.injuries = mean(INJURIES, na.rm = T),total.fatalities = sum(FATALITIES, na.rm = T), mean.fatalities = mean(FATALITIES, na.rm = T), total.damage = sum(damage, na.rm = T)) %>% arrange(-total.injuries) ###%>% top_n(40,total.injuries)
 
-top40.fatality.event <- top_n(storm.type.summary,40,total.fatalities)$EVTYPE
-top40.damage.event <- top_n(storm.type.summary,40,total.damage)$EVTYPE
+top40.fatality.event <- top_n(storm.type.summary,40,total.fatalities)
+top40.damage.event <- top_n(storm.type.summary,40,total.damage)
 
 #Subset Data
-top40.fatality.storm <- filter(storm.data, EVTYPE%in% top40.fatality.event)
-top40.damage.storm <- filter(storm.data, EVTYPE%in% top40.damage.event)
+top10.fatality.year.summary <- filter(storm.data, EVTYPE %in% head(top40.fatality.event$EVTYPE,10)) %>%   group_by(year, EVTYPE) %>% summarise(total.injuries = sum(INJURIES, na.rm = T),
+                                    mean.injuries = mean(INJURIES, na.rm = T),
+                                    total.fatalities = sum(FATALITIES, na.rm = T), 
+                                    mean.fatalities = mean(FATALITIES, na.rm = T), 
+                                    total.damage = sum(damage, na.rm = T))
 
-top40.year.grouped <- group_by(top40.storm, years)
+head(top10.fatality.year.summary)
 
-storm.year.summary <- summarise(storm.type.grouped, total.injuries = sum(INJURIES, na.rm = T), mean.injuries = mean(INJURIES, na.rm = T),total.fatalities = sum(FATALITIES, na.rm = T), mean.fatalities = mean(FATALITIES, na.rm = T)) %>% arrange(-total.injuries) %>% top_n(40,total.injuries)
+top10.damage.year.summary <- filter(storm.data, EVTYPE %in% head(top40.damage.event$EVTYPE,10)) %>%   group_by(year, EVTYPE) %>% summarise(total.injuries = sum(INJURIES, na.rm = T),
+                                    mean.injuries = mean(INJURIES, na.rm = T),
+                                    total.fatalities = sum(FATALITIES, na.rm = T), 
+                                    mean.fatalities = mean(FATALITIES, na.rm = T), 
+                                    total.damage = sum(damage, na.rm = T)) %>% arrange(-total.damage)
 
-annual.trend <- ggplot() + geom_line(data = storm.type.summary, aes(total.injuries))
+head(top10.damage.year.summary)
+```
 
-print(annual.trend)
 
-storm.heatmap <- ggplot() + geom_tile(data = storm.type.summary, aes(year, EVTYPE, fill = total.fatalities)) +
-                  scale_fill_gradientn(colours = rev(heat.colors(100)))
 
-print(storm.heatmap)
+##Results
+```{r results1}
+bar.plot1 <- ggplot() + geom_bar(data = top40.fatality.event, aes(EVTYPE, total.injuries), stat = "identity") + 
+  theme(axis.text.x=element_text(angle=90,hjust=1)) + ggtitle("Fig 1. Injuries caused by top 40 events")
+
+print(bar.plot1)
+
+bar.plot2 <- ggplot() + geom_bar(data = top40.fatality.event, aes(EVTYPE, total.damage), stat = "identity") + 
+  theme(axis.text.x=element_text(angle=90,hjust=1)) + ggtitle("Fig 2. Damage caused by top 40 events")
+
+print(bar.plot2)
+```
+
+* From figure 1 it is clear tornados are the largest cause of injuries out of the dataset between 1950 and 2011.
+* From figure 1 it is clear floods are the largest cause of damage out of the dataset between 1950 and 2011.
+
+```{r results2}
+line.plot1 <- ggplot() + geom_line(data = top10.fatality.year.summary, aes(year, total.injuries, colour = EVTYPE)) + ggtitle("Fig 3. Injuries annual trend - top 10 events")
+
+print(line.plot1)
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-##Results
+* From figure 3 it is clear tornados are persistantly the largest contributor to injury.
